@@ -87,23 +87,31 @@ void mem_init(void *mem, size_t taille) {
 }
 
 void mem_show(void (*print)(void *, size_t, int)) {
-    struct fb *free_zone = get_fb_head();
-    while (free_zone != NULL) {
+    for (struct fb *free_zone = get_fb_head(); free_zone; free_zone = free_zone->next) {
         struct fb *next = free_zone->next;
         print(free_zone, free_zone->size, true);
         if (next) {
             print(((void *) free_zone) + free_zone->size, ((void *) next) - ((void *) free_zone) - free_zone->size,
                   false);
         }
-        free_zone = next;
     }
 }
 
-void *mem_alloc(size_t taille) {
-    /* ... */
-    struct fb *fb = get_header()->fit(/*...*/NULL, /*...*/0);
-    /* ... */
-    return NULL;
+void *mem_alloc(size_t size) {
+    struct fb *fb = get_header()->fit(get_fb_head(), size);
+
+    if (fb) {
+        struct fb *new_fb = ((void *) fb) + sizeof(struct fb) + size;
+        new_fb->size = fb->size - size;
+        new_fb->next = fb->next;
+
+        fb->size = sizeof(struct fb);
+        fb->next = ((void *) fb) + sizeof(struct fb) + size;
+
+        return (void *) fb + sizeof(struct fb);
+    } else {
+        return NULL;
+    }
 }
 
 
@@ -112,6 +120,12 @@ void mem_free(void *mem) {
 
 
 struct fb *mem_fit_first(struct fb *list, size_t size) {
+    for (struct fb *cell = list; cell; cell = cell->next) {
+        if (size <= cell->size - 2 * sizeof(struct fb)) {
+            return cell;
+        }
+    }
+
     return NULL;
 }
 
