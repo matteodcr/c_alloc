@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stddef.h>
 #include <string.h>
+#include <stdbool.h>
 
 /* Définition de l'alignement recherché
  * Avec gcc, on peut utiliser __BIGGEST_ALIGNMENT__
@@ -70,6 +71,7 @@ struct fb {
 void mem_init(void *mem, size_t taille) {
     // On met en place fb
     memory_addr = mem;
+    //On met en place allocator header
     *(size_t *) memory_addr = taille;
     /* On vérifie qu'on a bien enregistré les infos et qu'on
      * sera capable de les récupérer par la suite
@@ -77,29 +79,28 @@ void mem_init(void *mem, size_t taille) {
     assert(mem == get_system_memory_addr());
     assert(taille == get_system_memory_size());
 
-    //On met en place allocator header
-    mem_size(taille + sizeof(struct allocator_header));
+    struct fb *head = get_fb_head();
+    head->size = taille - sizeof(struct allocator_header);
+    head->next = NULL;
+
     mem_fit(&mem_fit_first);
 }
 
 void mem_show(void (*print)(void *, size_t, int)) {
-    struct fb *cell = get_fb_head();
-    int written;
-    while (cell != NULL) {
-        if (cell->next == NULL) {
-            written = 0;
-        } else {
-            struct fb *next = cell->next;
-            written = next - cell - cell->size;
+    struct fb *free_zone = get_fb_head();
+    while (free_zone != NULL) {
+        struct fb *next = free_zone->next;
+        print(free_zone, free_zone->size, true);
+        if (next) {
+            print(((void *) free_zone) + free_zone->size, ((void *) next) - ((void *) free_zone) - free_zone->size,
+                  false);
         }
-        print(cell, cell->size, written != cell->size);
-        cell = cell->next;
+        free_zone = next;
     }
 }
 
 void *mem_alloc(size_t taille) {
     /* ... */
-    __attribute__((unused)) /* juste pour que gcc compile ce squelette avec -Werror */
     struct fb *fb = get_header()->fit(/*...*/NULL, /*...*/0);
     /* ... */
     return NULL;
