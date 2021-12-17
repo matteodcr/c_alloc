@@ -98,6 +98,12 @@ void mem_show(void (*print)(void *, size_t, int)) {
 }
 
 void *mem_alloc(size_t size) {
+    if (size == 0) {
+        // On peut retourner n'importe quel pointeur mais pour éviter les UB, il faut qu'il soit non-nul et aligné à la
+        // taille d'un registre. Ce cas sera géré dans `mem_free`.
+        return get_fb_head();
+    }
+
     struct fb *fb = get_header()->fit(get_fb_head(), size);
 
     if (fb) {
