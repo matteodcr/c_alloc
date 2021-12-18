@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 /* Définition de l'alignement recherché
  * Avec gcc, on peut utiliser __BIGGEST_ALIGNMENT__
@@ -97,12 +98,23 @@ void mem_show(void (*print)(void *, size_t, int)) {
     }
 }
 
+
+void align_by_8(size_t *val) {
+    size_t x = *val % (size_t) 8;
+    *val += x ? 8 - x : 0;
+}
+
+
 void *mem_alloc(size_t size) {
     if (size == 0) {
         // On peut retourner n'importe quel pointeur mais pour éviter les UB, il faut qu'il soit non-nul et aligné à la
         // taille d'un registre. Ce cas sera géré dans `mem_free`.
         return get_fb_head();
     }
+
+    // On aligne par 8, c'est plus prudent car cela garantit que tous les fb sont alignés (le contraire serait
+    // potentiellement problématique sur certaines architectures).
+    align_by_8(&size);
 
     struct fb *fb = get_header()->fit(get_fb_head(), size);
 
@@ -122,12 +134,28 @@ void *mem_alloc(size_t size) {
 
 
 void mem_free(void *mem) {
+    if (mem == get_fb_head()) {
+        // Special case of `mem_alloc(0)`
+        return;
+    }
+
+    for (struct fb *cell = get_fb_head(); cell; cell = cell->next) {
+        if (((void *) cell) + cell->size == mem) {
+            cell->size = (size_t) ((void *) cell->next - ((void *) cell)) + cell->next->size;
+            cell->next = cell->next->next;
+            return;
+        }
+    }
+
+    exit(1);
+    // TODO: aïe aïe aïe
 }
 
 
 struct fb *mem_fit_first(struct fb *list, size_t size) {
     for (struct fb *cell = list; cell; cell = cell->next) {
-        if (size <= cell->size - 2 * sizeof(struct fb)) {
+        ssize_t free_space = (ssize_t) cell->size - (ssize_t) 2 * (ssize_t) sizeof(struct fb);
+        if ((ssize_t) size <= free_space) {
             return cell;
         }
     }
