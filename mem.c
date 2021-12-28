@@ -171,11 +171,22 @@ struct fb *mem_fit_first(struct fb *list, size_t size) {
  * (ou en discuter avec l'enseignant)
  */
 size_t mem_get_size(void *zone) {
-    /* zone est une adresse qui a été retournée par mem_alloc() */
+    if (zone == get_fb_head()) {
+        // Special case of `mem_alloc(0)`
+        return 0;
+    }
 
-    /* la valeur retournée doit être la taille maximale que
-     * l'utilisateur peut utiliser dans cette zone */
-    return 0;
+    for (struct fb *cell = get_fb_head(); cell; cell = cell->next) {
+        if (((void *) cell) + cell->size == zone) {
+            // Ne devrait pas être nul si la mémoire est dans un état valide et que la condition ci-dessus est vérifiée
+            struct fb* next = cell->next;
+
+            return ((void*) next) - ((void*) cell) - cell->size;
+        }
+    }
+
+    exit(1);
+    // TODO: aïe aïe aïe
 }
 
 /* Fonctions facultatives
