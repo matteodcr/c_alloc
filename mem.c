@@ -120,7 +120,7 @@ void *mem_alloc(size_t size) {
 
     if (fb) {
         struct fb *new_fb = ((void *) fb) + sizeof(struct fb) + size;
-        new_fb->size = fb->size - size;
+        new_fb->size = fb->size - size - sizeof(struct fb);
         new_fb->next = fb->next;
 
         fb->size = sizeof(struct fb);
