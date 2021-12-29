@@ -60,7 +60,8 @@ unsafe impl Allocator for Info3Allocateur {
     }
 }
 
-/// Global allocator, can be used with [global_allocator][std::alloc#the-global_allocator-attribute]
+/// Global allocator, can be used with
+/// [`#[global_allocator]`][std::alloc#the-global_allocator-attribute]
 pub struct Info3AllocateurGlobal;
 
 unsafe impl GlobalAlloc for Info3AllocateurGlobal {
