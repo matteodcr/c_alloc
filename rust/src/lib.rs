@@ -13,6 +13,11 @@ extern "C" {
     fn mem_free(ptr: *mut u8);
 }
 
+/// Non-global allocator
+///
+/// Can be used for a specific instance of a type, such as with:
+///  * [Vec] → [`Vec::new_in(allocator: A)`][Vec::new_in]
+///  * [Box] → [`Box::new_in(value: T, allocator: A)`][Box::new_in]
 #[derive(Clone, Copy)]
 pub struct Info3Allocateur([(); 0]);
 
@@ -55,7 +60,7 @@ unsafe impl Allocator for Info3Allocateur {
     }
 }
 
-/// Global allocator, can be used with [std::prelude::global_allocator]
+/// Global allocator, can be used with [global_allocator][std::alloc#the-global_allocator-attribute]
 pub struct Info3AllocateurGlobal;
 
 unsafe impl GlobalAlloc for Info3AllocateurGlobal {
