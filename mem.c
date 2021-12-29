@@ -99,22 +99,30 @@ void mem_show(void (*print)(void *, size_t, int)) {
 }
 
 
-void align_by_8(size_t *val) {
-    size_t x = *val % (size_t) 8;
-    *val += x ? 8 - x : 0;
+// On se sert de ça depuis l'allocateur Rust. Certaines fonctions du runtime de test utilisent des HashMaps implémentées
+// avec des vecteurs SIMD qui requièrent un alignement par 16. Ce paramètre est configuré depuis `/rust/build.rs`.
+#ifndef ALLOCATEUR_ALIGNMENT
+#define ALLOCATEUR_ALIGNMENT 8
+#endif
+
+void align_correctly(size_t *val) {
+    size_t x = *val % (size_t) ALLOCATEUR_ALIGNMENT;
+    *val += x ? ALLOCATEUR_ALIGNMENT - x : 0;
 }
 
 
 void *mem_alloc(size_t size) {
+#ifdef ALLOCATEUR_ZERO_OPTIMIZATION
     if (size == 0) {
         // On peut retourner n'importe quel pointeur mais pour éviter les UB, il faut qu'il soit non-nul et aligné à la
         // taille d'un registre. Ce cas sera géré dans `mem_free`.
         return get_fb_head();
     }
+#endif
 
-    // On aligne par 8, c'est plus prudent car cela garantit que tous les fb sont alignés (le contraire serait
+    // On aligne la taille, c'est plus prudent, car cela garantit que tous les fb sont alignés (le contraire serait
     // potentiellement problématique sur certaines architectures).
-    align_by_8(&size);
+    align_correctly(&size);
 
     struct fb *fb = get_header()->fit(get_fb_head(), size);
 
@@ -134,10 +142,12 @@ void *mem_alloc(size_t size) {
 
 
 void mem_free(void *mem) {
+#ifdef ALLOCATEUR_ZERO_OPTIMIZATION
     if (mem == get_fb_head()) {
         // Special case of `mem_alloc(0)`
         return;
     }
+#endif
 
     for (struct fb *cell = get_fb_head(); cell; cell = cell->next) {
         if (((void *) cell) + cell->size == mem) {
@@ -171,6 +181,9 @@ struct fb *mem_fit_first(struct fb *list, size_t size) {
  * (ou en discuter avec l'enseignant)
  */
 size_t mem_get_size(void *zone) {
+#ifdef ALLOCATEUR_ZERO_OPTIMIZATION
+#endif
+
     /* zone est une adresse qui a été retournée par mem_alloc() */
 
     /* la valeur retournée doit être la taille maximale que
