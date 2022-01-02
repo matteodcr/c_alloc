@@ -182,22 +182,70 @@ struct fb *mem_fit_first(struct fb *list, size_t size) {
  */
 size_t mem_get_size(void *zone) {
 #ifdef ALLOCATEUR_ZERO_OPTIMIZATION
+    if (zone == get_fb_head()) {
+        // Special case of `mem_alloc(0)`
+        return 0;
+    }
 #endif
 
-    /* zone est une adresse qui a été retournée par mem_alloc() */
+    for (struct fb *cell = get_fb_head(); cell; cell = cell->next) {
+        if (((void *) cell) + cell->size == zone) {
+            // Ne devrait pas être nul si la mémoire est dans un état valide et que la condition ci-dessus est vérifiée
+            struct fb *next = cell->next;
 
-    /* la valeur retournée doit être la taille maximale que
-     * l'utilisateur peut utiliser dans cette zone */
-    return 0;
+            return ((void *) next) - ((void *) cell) - cell->size;
+        }
+    }
+
+    exit(1);
+    // TODO: aïe aïe aïe
 }
 
 /* Fonctions facultatives
  * autres stratégies d'allocation
  */
 struct fb *mem_fit_best(struct fb *list, size_t size) {
-    return NULL;
+    bool is_min = false;
+    size_t size_min;
+    struct fb *cell_min = NULL;
+
+    for (struct fb *cell = list; cell; cell = cell->next) {
+        ssize_t free_space = (ssize_t) cell->size - (ssize_t) 2 * (ssize_t) sizeof(struct fb);
+
+        if ((ssize_t) size <= free_space) {
+            if (is_min && free_space < size_min) {
+                cell_min = cell;
+                size_min = free_space;
+            }
+            if (!is_min) {
+                cell_min = cell;
+                size_min = free_space;
+                is_min = true;
+            }
+        }
+    }
+    return cell_min;
 }
 
 struct fb *mem_fit_worst(struct fb *list, size_t size) {
-    return NULL;
+    bool is_max = false;
+    size_t size_max;
+    struct fb *cell_max = NULL;
+
+    for (struct fb *cell = list; cell; cell = cell->next) {
+        ssize_t free_space = (ssize_t) cell->size - (ssize_t) 2 * (ssize_t) sizeof(struct fb);
+
+        if ((ssize_t) size <= free_space) {
+            if (is_max && free_space > size_max) {
+                cell_max = cell;
+                size_max = free_space;
+            }
+            if (!is_max) {
+                cell_max = cell;
+                size_max = free_space;
+                is_max = true;
+            }
+        }
+    }
+    return cell_max;
 }
