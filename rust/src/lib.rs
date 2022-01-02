@@ -1,5 +1,9 @@
-#![feature(allocator_api, ptr_metadata)]
+#![feature(allocator_api, extern_types, ptr_metadata)]
 
+mod fit;
+
+use crate::fit::FitFn;
+pub use crate::fit::FitFunction;
 use std::alloc::{AllocError, Allocator, GlobalAlloc, Layout};
 use std::ops::Deref;
 use std::ptr::{null_mut, NonNull};
@@ -8,6 +12,7 @@ extern "C" {
     fn get_memory_size() -> usize;
     fn get_memory_adr() -> *mut u8;
     fn mem_init(memory: *mut u8, size: usize);
+    fn mem_fit(f: FitFn);
 
     fn mem_alloc(size: usize) -> *mut u8;
     fn mem_free(ptr: *mut u8);
@@ -40,6 +45,15 @@ impl Default for Info3Allocateur {
 impl Info3Allocateur {
     pub fn size(self) -> usize {
         unsafe { get_memory_size() }
+    }
+
+    /// Use an alternative fit function
+    ///
+    /// By default, allocators use the [`FitFunction::First`] strategy
+    pub fn set_fit_function(self, fit: FitFunction) {
+        unsafe {
+            mem_fit(fit.to_fn());
+        }
     }
 }
 
