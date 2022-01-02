@@ -84,7 +84,7 @@ void mem_init(void *mem, size_t taille) {
     head->size = taille - sizeof(struct allocator_header);
     head->next = NULL;
 
-    mem_fit(&mem_fit_worst);
+    mem_fit(&mem_fit_first);
 }
 
 void mem_show(void (*print)(void *, size_t, int)) {
