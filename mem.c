@@ -84,7 +84,7 @@ void mem_init(void *mem, size_t taille) {
     head->size = taille - sizeof(struct allocator_header);
     head->next = NULL;
 
-    mem_fit(&mem_fit_first);
+    mem_fit(&mem_fit_worst);
 }
 
 void mem_show(void (*print)(void *, size_t, int)) {
@@ -201,7 +201,7 @@ struct fb *mem_fit_best(struct fb *list, size_t size) {
         ssize_t free_space = (ssize_t) cell->size - (ssize_t) 2 * (ssize_t) sizeof(struct fb);
 
         if ((ssize_t) size <= free_space) {
-            if (is_min && size < size_min) {
+            if (is_min && free_space < size_min) {
                 cell_min = cell;
                 size_min = free_space;
             }
@@ -224,7 +224,7 @@ struct fb *mem_fit_worst(struct fb *list, size_t size) {
         ssize_t free_space = (ssize_t) cell->size - (ssize_t) 2 * (ssize_t) sizeof(struct fb);
 
         if ((ssize_t) size <= free_space) {
-            if (is_max && size > size_max) {
+            if (is_max && free_space > size_max) {
                 cell_max = cell;
                 size_max = free_space;
             }
