@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <valgrind/valgrind.h>
 
 /* Définition de l'alignement recherché
  * Avec gcc, on peut utiliser __BIGGEST_ALIGNMENT__
@@ -80,6 +81,8 @@ void mem_init(void *mem, size_t taille) {
     assert(mem == get_system_memory_addr());
     assert(taille == get_system_memory_size());
 
+    VALGRIND_CREATE_MEMPOOL(mem, sizeof(struct fb), false);
+
     struct fb *head = get_fb_head();
     head->size = taille - sizeof(struct allocator_header);
     head->next = NULL;
@@ -126,7 +129,9 @@ void *mem_alloc(size_t size) {
         fb->size = sizeof(struct fb);
         fb->next = ((void *) fb) + sizeof(struct fb) + size;
 
-        return (void *) fb + sizeof(struct fb);
+        void* allocated = (void *) fb + sizeof(struct fb);
+        VALGRIND_MEMPOOL_ALLOC(get_system_memory_addr(), allocated, size);
+        return allocated;
     } else {
         return NULL;
     }
@@ -143,6 +148,7 @@ void mem_free(void *mem) {
         if (((void *) cell) + cell->size == mem) {
             cell->size = (size_t) ((void *) cell->next - ((void *) cell)) + cell->next->size;
             cell->next = cell->next->next;
+            VALGRIND_MEMPOOL_FREE(get_system_memory_addr(), mem);
             return;
         }
     }
