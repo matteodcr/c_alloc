@@ -4,7 +4,6 @@
 #include <assert.h>
 #include <stddef.h>
 #include <string.h>
-#include <stdbool.h>
 #include <stdlib.h>
 
 /* Définition de l'alignement recherché
@@ -13,9 +12,18 @@
  */
 #ifdef __BIGGEST_ALIGNMENT__
 #define ALIGNMENT __BIGGEST_ALIGNMENT__
+#define FB_VALID_OR(x, val)  if (!is_fb_link_valid(x)) {\
+                        set_error_code(FB_LINK_BROKEN);\
+                        return val;}
 #else
 #define ALIGNMENT 16
 #endif
+
+enum error_code LAST_ERROR;
+
+static inline void set_error_code(enum error_code x) {
+    LAST_ERROR = x;
+}
 
 /* structure placée au début de la zone de l'allocateur
 
@@ -67,6 +75,16 @@ struct fb {
     size_t size;
     struct fb *next;
 };
+
+bool is_fb_link_valid(struct fb *x) {
+    if (x->next == NULL) {
+        return true;
+    } else {
+        struct fb *y = x->next;
+        size_t dif = (size_t) ((void *) y - (void *) x) -8 ;
+        return x->size <= dif;
+    }
+}
 
 
 void mem_init(void *mem, size_t taille) {
@@ -133,27 +151,35 @@ void *mem_alloc(size_t size) {
 }
 
 
-void mem_free(void *mem) {
+bool mem_free(void *mem) {
     if (mem == get_fb_head()) {
         // Special case of `mem_alloc(0)`
-        return;
+        return true;
     }
 
     for (struct fb *cell = get_fb_head(); cell; cell = cell->next) {
+        // détection de chaînages invalides causés par un écrasement des données de l'allocateur
+        FB_VALID_OR(cell, false);
         if (((void *) cell) + cell->size == mem) {
             cell->size = (size_t) ((void *) cell->next - ((void *) cell)) + cell->next->size;
             cell->next = cell->next->next;
-            return;
+            return true;
         }
     }
 
-    exit(1);
-    // TODO: aïe aïe aïe
+    set_error_code(NOT_ALLOCATED);
+    return false; // on essaie de libérer une zone mémoire non allouée
 }
 
 
 struct fb *mem_fit_first(struct fb *list, size_t size) {
     for (struct fb *cell = list; cell; cell = cell->next) {
+        // détection de chaînages invalides causés par un écrasement des données de l'allocateur
+        FB_VALID_OR(cell, NULL);
+        if (!is_fb_link_valid(cell)) {
+            set_error_code(FB_LINK_BROKEN);
+            return NULL;
+        }
         ssize_t free_space = (ssize_t) cell->size - (ssize_t) 2 * (ssize_t) sizeof(struct fb);
         if ((ssize_t) size <= free_space) {
             return cell;
@@ -177,6 +203,8 @@ size_t mem_get_size(void *zone) {
     }
 
     for (struct fb *cell = get_fb_head(); cell; cell = cell->next) {
+        // détection de chaînages invalides causés par un écrasement des données de l'allocateur
+        FB_VALID_OR(cell, MEM_GET_SIZE_ERROR);
         if (((void *) cell) + cell->size == zone) {
             // Ne devrait pas être nul si la mémoire est dans un état valide et que la condition ci-dessus est vérifiée
             struct fb *next = cell->next;
@@ -185,8 +213,8 @@ size_t mem_get_size(void *zone) {
         }
     }
 
-    exit(1);
-    // TODO: aïe aïe aïe
+    set_error_code(NOT_ALLOCATED);
+    return MEM_GET_SIZE_ERROR; // On retourne la val. max d'un size_t pour signifier une erreur
 }
 
 /* Fonctions facultatives
@@ -198,6 +226,9 @@ struct fb *mem_fit_best(struct fb *list, size_t size) {
     struct fb *cell_min = NULL;
 
     for (struct fb *cell = list; cell; cell = cell->next) {
+        // détection de chaînages invalides causés par un écrasement des données de l'allocateur
+        FB_VALID_OR(cell, NULL);
+
         ssize_t free_space = (ssize_t) cell->size - (ssize_t) 2 * (ssize_t) sizeof(struct fb);
 
         if ((ssize_t) size <= free_space) {
@@ -221,6 +252,8 @@ struct fb *mem_fit_worst(struct fb *list, size_t size) {
     struct fb *cell_max = NULL;
 
     for (struct fb *cell = list; cell; cell = cell->next) {
+        // détection de chaînages invalides causés par un écrasement des données de l'allocateur
+        FB_VALID_OR(cell, NULL);
         ssize_t free_space = (ssize_t) cell->size - (ssize_t) 2 * (ssize_t) sizeof(struct fb);
 
         if ((ssize_t) size <= free_space) {

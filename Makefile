@@ -32,9 +32,12 @@ libmalloc.so: malloc_stub.o
 memshell: memshell.c mem.o common.o
 	$(CC) mem.o common.o memshell.c -o memshell
 
+tests/link_test: tests/link_test.c malloc_stub.o mem.o common.o
+	$(CC) $(CFLAGS) $^ -o $@
+
 test_ls: libmalloc.so
 	LD_PRELOAD=./libmalloc.so ls
 
 # nettoyage
 clean:
-	$(RM) *.o $(PROGRAMS) libmalloc.so .*.deps
+	$(RM) *.o $(PROGRAMS) libmalloc.so .*.deps tests/link_test
