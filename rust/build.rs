@@ -14,7 +14,6 @@ fn main() {
         .file("../common.c")
         .file("../mem.c")
         .define("MEMORY_SIZE", Some(memory_size.as_str()))
-        .define("ALLOCATEUR_ALIGNMENT", Some("16"))
         .include("..")
         .compile("info3_allocateur_rs");
 }

@@ -99,15 +99,9 @@ void mem_show(void (*print)(void *, size_t, int)) {
 }
 
 
-// On se sert de ça depuis l'allocateur Rust. Certaines fonctions du runtime de test utilisent des HashMaps implémentées
-// avec des vecteurs SIMD qui requièrent un alignement par 16. Ce paramètre est configuré depuis `/rust/build.rs`.
-#ifndef ALLOCATEUR_ALIGNMENT
-#define ALLOCATEUR_ALIGNMENT 8
-#endif
-
 void align_correctly(size_t *val) {
-    size_t x = *val % (size_t) ALLOCATEUR_ALIGNMENT;
-    *val += x ? ALLOCATEUR_ALIGNMENT - x : 0;
+    size_t x = *val % (size_t) ALIGNMENT;
+    *val += x ? ALIGNMENT - x : 0;
 }
 
 
