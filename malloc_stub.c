@@ -24,6 +24,7 @@ void init() {
     }
 }
 
+void* malloc_info3 = &malloc;
 void *malloc(size_t s) {
     void *result;
 
