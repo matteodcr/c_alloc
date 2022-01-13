@@ -38,6 +38,7 @@ test_ls: libmalloc.so
 # Valgrind tests
 
 tests: tests/general tests/valgrind
+	./$<
 
 tests/general: tests/general.c mem.o common.o
 	$(CC) $(CFLAGS) -o $@ $^

@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include "../mem.h"
 
-#define TEST(function) void function(); test_function(function, #function);
+#define TEST(function) { void function(); test_function(function, #function); }
 #define assert_eq(a, b) { size_t av = (size_t) (a), bv = (size_t) (b); if (av != bv) { fprintf(stderr, "%s = %ld\n%s = %ld\n", #a, av, #b, bv); assert(0); } }
 #define UNUSED __attribute__((unused))
 
@@ -21,6 +21,8 @@ void test_function(void (*function)(), const char* name) {
 int main() {
     // Certains tests dépendent de ça
     assert(__BIGGEST_ALIGNMENT__ == 16);
+
+    fprintf(stderr, "Si les tests s'affichent avec simultanément une croix et une coche (sur deux lignes), c'est que le terminal utilisé ne supporte pas certains codes ANSI. La coche prévaut.\n");
 
     TEST(comme_le_schema);
     TEST(alloc_free_alloc_free_same_pointer);
