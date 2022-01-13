@@ -14,6 +14,7 @@ struct fb;
 
 /* fonctions principales de l'allocateur */
 void mem_init(void* mem, size_t taille);
+void mem_init_auto();
 void* mem_alloc(size_t size);
 bool mem_free(void* ptr);
 size_t mem_get_size(void *zone);

@@ -1,5 +1,6 @@
 /* On inclut l'interface publique */
 #include "mem.h"
+#include "common.h"
 
 #include <assert.h>
 #include <stddef.h>
@@ -110,6 +111,12 @@ void mem_init(void *mem, size_t taille) {
     mem_fit(&mem_fit_first);
 }
 
+
+void mem_init_auto() {
+    mem_init(get_memory_adr(), get_memory_size());
+}
+
+
 void mem_show(void (*print)(void *, size_t, int)) {
     for (struct fb *free_zone = get_fb_head(); free_zone; free_zone = free_zone->next) {
         struct fb *next = free_zone->next;
@@ -122,9 +129,9 @@ void mem_show(void (*print)(void *, size_t, int)) {
 }
 
 
-void align_by_8(size_t *val) {
-    size_t x = *val % (size_t) 8;
-    *val += x ? 8 - x : 0;
+void align_correctly(size_t *val) {
+    size_t x = *val % (size_t) ALIGNMENT;
+    *val += x ? ALIGNMENT - x : 0;
 }
 
 
@@ -137,7 +144,7 @@ void *mem_alloc(size_t size) {
 
     // On aligne par 8, c'est plus prudent car cela garantit que tous les fb sont alignés (le contraire serait
     // potentiellement problématique sur certaines architectures).
-    align_by_8(&size);
+    align_correctly(&size);
 
     struct fb *fb = get_header()->fit(get_fb_head(), size);
 
