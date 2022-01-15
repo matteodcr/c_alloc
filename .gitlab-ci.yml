@@ -1,0 +1,6 @@
+image: "rustlang/rust:nightly"
+
+unit-test-job:
+  script:
+    - apt-get update -y && apt-get install -y valgrind
+    - make tests

@@ -2,3 +2,6 @@
 .*.o.deps
 /memshell
 /test_init
+/libmalloc.so
+/tests/general
+/tests/valgrind_*leak

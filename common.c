@@ -9,7 +9,7 @@
  * mem_init(get_memory_adr(), get_memory_size())
  */
 #ifndef MEMORY_SIZE
-#define MEMORY_SIZE 8192
+#define MEMORY_SIZE 65536
 #endif
 
 static char memory[MEMORY_SIZE];
