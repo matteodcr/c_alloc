@@ -52,7 +52,7 @@ int main()
   int taille, i;
 
   aide();
-  mem_init(get_memory_adr(),get_memory_size());
+  mem_init(get_memory_adr(),get_memory_size(), false);
 
   while (1) {
       printf("? ");
