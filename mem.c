@@ -23,6 +23,22 @@
                         set_error_code(FB_LINK_BROKEN);\
                         return val;}
 
+// Définition du type et de la valeur du garde, en fonction de l'alignement
+// Un garde fait la taille de l'alignement, ce qui évite de devoir réaligner plus tard
+// La valeur du garde est plus ou moins aléatoire. Par contre, on évite d'avoir des zéro car c'est une valeur qui est
+// statistiquement fréquente en informatique, et on pourrait facilement laisser passer des écrasements du garde par des
+// zéros.
+#if ALIGNMENT == 16
+typedef __uint128_t guard;
+#define GUARD_VALUE ((guard) (((__uint128_t) 0xe91f8f0551fce198 << 64) | 0xcdd22bcadb23621a))
+#elif ALIGNMENT == 8
+typedef uint64_t guard;
+#define GUARD_VALUE ((guard) 0xe91f8f0551fce198)
+#elif ALIGNMENT == 4
+typedef uint32_t guard;
+#define GUARD_VALUE ((guard) 0xe91f8f05)
+#endif
+
 enum error_code LAST_ERROR;
 
 static inline void set_error_code(enum error_code x) {
@@ -39,7 +55,8 @@ static inline void set_error_code(enum error_code x) {
 struct allocator_header {
     size_t memory_size;
     mem_fit_function_t *fit;
-};
+    bool guards_enabled;
+} __attribute__ ((aligned (16))); // Essentiel au bon fonctionnement de l'allocateur
 
 
 /* La seule variable globale autorisée
@@ -91,11 +108,18 @@ bool is_fb_link_valid(struct fb *x) {
 }
 
 
-void mem_init(void *mem, size_t taille) {
+void mem_init(void *mem, size_t taille, bool enable_guards) {
+    // On s'assure que l'attribut ((aligned)) ci-dessus marche bien avec notre compilateur
+    // Un bon compilateur optimisera sans aucun doute la ligne ci-dessous en l'enlevant
+    assert(sizeof(struct allocator_header) % 16 == 0);
+
     // On met en place fb
     memory_addr = mem;
     //On met en place allocator header
-    *(size_t *) memory_addr = taille;
+    *get_header() = (struct allocator_header) {
+        .memory_size = taille,
+        .guards_enabled = enable_guards,
+    };
     /* On vérifie qu'on a bien enregistré les infos et qu'on
      * sera capable de les récupérer par la suite
      */
@@ -112,8 +136,8 @@ void mem_init(void *mem, size_t taille) {
 }
 
 
-void mem_init_auto() {
-    mem_init(get_memory_adr(), get_memory_size());
+void mem_init_auto(bool enable_guards) {
+    mem_init(get_memory_adr(), get_memory_size(), enable_guards);
 }
 
 
@@ -135,8 +159,8 @@ void align_correctly(size_t *val) {
 }
 
 
-void *mem_alloc(size_t size) {
-    if (size == 0) {
+void *mem_alloc(size_t requested_size) {
+    if (requested_size == 0) {
         // On peut retourner n'importe quel pointeur mais pour éviter les UB, il faut qu'il soit non-nul et aligné à la
         // taille d'un registre. Ce cas sera géré dans `mem_free`.
         return get_fb_head();
@@ -144,20 +168,30 @@ void *mem_alloc(size_t size) {
 
     // On aligne par 8, c'est plus prudent car cela garantit que tous les fb sont alignés (le contraire serait
     // potentiellement problématique sur certaines architectures).
-    align_correctly(&size);
+    align_correctly(&requested_size);
 
-    struct fb *fb = get_header()->fit(get_fb_head(), size);
+    bool guards_enabled = get_header()->guards_enabled;
+    size_t actual_size = requested_size + (!guards_enabled ? 0 : 2*sizeof(guard));
+
+    struct fb *fb = get_header()->fit(get_fb_head(), actual_size);
 
     if (fb) {
-        struct fb *new_fb = ((void *) fb) + sizeof(struct fb) + size;
-        new_fb->size = fb->size - size - sizeof(struct fb);
+        struct fb *new_fb = ((void *) fb) + sizeof(struct fb) + actual_size;
+        new_fb->size = fb->size - actual_size - sizeof(struct fb);
         new_fb->next = fb->next;
 
         fb->size = sizeof(struct fb);
-        fb->next = ((void *) fb) + sizeof(struct fb) + size;
+        fb->next = ((void *) fb) + sizeof(struct fb) + actual_size;
 
         void* allocated = (void *) fb + sizeof(struct fb);
-        VALGRIND_MEMPOOL_ALLOC(get_system_memory_addr(), allocated, size);
+
+        if (guards_enabled) {
+            *((guard*) allocated) = GUARD_VALUE;
+            allocated += sizeof(guard);
+            *((guard*) (allocated + requested_size)) = GUARD_VALUE;
+        }
+
+        VALGRIND_MEMPOOL_ALLOC(get_system_memory_addr(), allocated, requested_size);
         return allocated;
     } else {
         return NULL;
@@ -171,10 +205,24 @@ bool mem_free(void *mem) {
         return true;
     }
 
+    bool guards_enabled = get_header()->guards_enabled;
+    if (guards_enabled) {
+        mem -= sizeof(guard);
+    }
+
     for (struct fb *cell = get_fb_head(); cell; cell = cell->next) {
         // détection de chaînages invalides causés par un écrasement des données de l'allocateur
         FB_VALID_OR(cell, false);
         if (((void *) cell) + cell->size == mem) {
+            if (guards_enabled) {
+                bool left_guard_violation = ((guard*) mem)[0] != GUARD_VALUE;
+                bool right_guard_violation = ((guard*) cell->next)[-1] != GUARD_VALUE;
+                if (left_guard_violation || right_guard_violation) {
+                    LAST_ERROR = GUARD_VIOLATION;
+                    return false;
+                }
+            }
+
             cell->size = (size_t) ((void *) cell->next - ((void *) cell)) + cell->next->size;
             cell->next = cell->next->next;
             VALGRIND_MEMPOOL_FREE(get_system_memory_addr(), mem);

@@ -8,13 +8,14 @@
 extern enum error_code {
     NOT_ALLOCATED,
     FB_LINK_BROKEN,
+    GUARD_VIOLATION,
 } LAST_ERROR;
 
 struct fb;
 
 /* fonctions principales de l'allocateur */
-void mem_init(void* mem, size_t taille);
-void mem_init_auto();
+void mem_init(void* mem, size_t taille, bool guards_enabled);
+void mem_init_auto(bool enable_guards);
 void* mem_alloc(size_t size);
 bool mem_free(void* ptr);
 size_t mem_get_size(void *zone);
