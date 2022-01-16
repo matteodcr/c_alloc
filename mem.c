@@ -166,7 +166,7 @@ void *mem_alloc(size_t requested_size) {
         return get_fb_head();
     }
 
-    // On aligne par 8, c'est plus prudent car cela garantit que tous les fb sont alignés (le contraire serait
+    // On aligne, c'est plus prudent, car cela garantit que tous les fb sont alignés (le contraire serait
     // potentiellement problématique sur certaines architectures).
     align_correctly(&requested_size);
 
@@ -225,7 +225,7 @@ bool mem_free(void *mem) {
 
             cell->size = (size_t) ((void *) cell->next - ((void *) cell)) + cell->next->size;
             cell->next = cell->next->next;
-            VALGRIND_MEMPOOL_FREE(get_system_memory_addr(), mem);
+            VALGRIND_MEMPOOL_FREE(get_system_memory_addr(), mem + (guards_enabled ? sizeof(guard) : 0));
             return true;
         }
     }
