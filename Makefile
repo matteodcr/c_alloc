@@ -6,6 +6,8 @@ CC=gcc
 
 CFLAGS+= $(HOST32) -Wall -Werror -std=c99 -g -D_GNU_SOURCE
 CFLAGS+= -DDEBUG
+# Possible que cela pose problème avec les réallocations
+#CFLAGS+= -DALLOCATEUR_ZERO_OPTIMIZATION
 # pour tester avec ls
 CFLAGS+= -fPIC
 LDFLAGS= $(HOST32)

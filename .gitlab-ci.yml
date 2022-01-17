@@ -1,6 +1,24 @@
 image: "rustlang/rust:nightly"
 
+before_script:
+  - apt-get update -yqq
+  - apt-get install -yqq --no-install-recommends build-essential valgrind
+
 unit-test-job:
   script:
-    - apt-get update -y && apt-get install -y valgrind
     - make tests
+
+rust_test:
+  script:
+    - rustc --version && cargo --version
+    - cargo +nightly test --manifest-path rust/Cargo.toml --workspace --verbose
+
+pages:
+  script:
+    - rustc --version && cargo --version
+    - cargo +nightly doc --manifest-path rust/Cargo.toml --verbose
+    - mv rust/target/doc public
+    - echo "<meta http-equiv=refresh content='0; url=./info3_allocateur/index.html' />" > public/index.html
+  artifacts:
+    paths:
+      - public

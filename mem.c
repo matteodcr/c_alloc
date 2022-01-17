@@ -160,11 +160,13 @@ void align_correctly(size_t *val) {
 
 
 void *mem_alloc(size_t requested_size) {
+#ifdef ALLOCATEUR_ZERO_OPTIMIZATION
     if (requested_size == 0) {
         // On peut retourner n'importe quel pointeur mais pour éviter les UB, il faut qu'il soit non-nul et aligné à la
         // taille d'un registre. Ce cas sera géré dans `mem_free`.
         return get_fb_head();
     }
+#endif
 
     // On aligne, c'est plus prudent, car cela garantit que tous les fb sont alignés (le contraire serait
     // potentiellement problématique sur certaines architectures).
@@ -200,10 +202,12 @@ void *mem_alloc(size_t requested_size) {
 
 
 bool mem_free(void *mem) {
+#ifdef ALLOCATEUR_ZERO_OPTIMIZATION
     if (mem == get_fb_head()) {
         // Special case of `mem_alloc(0)`
         return true;
     }
+#endif
 
     bool guards_enabled = get_header()->guards_enabled;
     if (guards_enabled) {
@@ -260,10 +264,12 @@ struct fb *mem_fit_first(struct fb *list, size_t size) {
  * (ou en discuter avec l'enseignant)
  */
 size_t mem_get_size(void *zone) {
+#ifdef ALLOCATEUR_ZERO_OPTIMIZATION
     if (zone == get_fb_head()) {
         // Special case of `mem_alloc(0)`
         return 0;
     }
+#endif
 
     for (struct fb *cell = get_fb_head(); cell; cell = cell->next) {
         // détection de chaînages invalides causés par un écrasement des données de l'allocateur
