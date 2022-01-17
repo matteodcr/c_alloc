@@ -11,11 +11,11 @@ use std::ptr::{null_mut, NonNull};
 extern "C" {
     fn get_memory_size() -> usize;
     fn get_memory_adr() -> *mut u8;
-    fn mem_init(memory: *mut u8, size: usize);
+    fn mem_init(memory: *mut u8, size: usize, enable_guards: bool);
     fn mem_fit(f: FitFn);
 
     fn mem_alloc(size: usize) -> *mut u8;
-    fn mem_free(ptr: *mut u8);
+    fn mem_free(ptr: *mut u8) -> bool;
 }
 
 /// Non-global allocator
@@ -29,7 +29,7 @@ pub struct Info3Allocateur([(); 0]);
 lazy_static::lazy_static! {
     static ref INSTANCE: Info3Allocateur = {
         unsafe {
-            mem_init(get_memory_adr(), get_memory_size());
+            mem_init(get_memory_adr(), get_memory_size(), false);
         }
 
         Info3Allocateur([])
@@ -70,7 +70,7 @@ unsafe impl Allocator for Info3Allocateur {
     }
 
     unsafe fn deallocate(&self, ptr: NonNull<u8>, _layout: Layout) {
-        mem_free(ptr.as_ptr());
+        assert!(mem_free(ptr.as_ptr()), "error while deallocating");
     }
 }
 
