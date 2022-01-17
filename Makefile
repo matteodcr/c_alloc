@@ -14,7 +14,7 @@ LDFLAGS= $(HOST32)
 TESTS+=test_init
 PROGRAMS=memshell $(TESTS)
 
-.PHONY: clean all test_ls
+.PHONY: clean all test_ls tests tests/valgrind
 
 all: $(PROGRAMS)
 	for file in $(TESTS);do ./$$file; done
@@ -37,6 +37,28 @@ memshell: memshell.c mem.o common.o
 test_ls: libmalloc.so
 	LD_PRELOAD=./libmalloc.so ls
 
+# Valgrind tests
+
+tests: tests/general tests/valgrind
+	./$<
+
+tests/general: tests/general.c mem.o common.o
+	$(CC) $(CFLAGS) -o $@ $^
+
+tests/valgrind_leak: tests/valgrind_leak.c malloc_stub.o mem.o common.o
+	$(CC) $(CFLAGS) -o $@ $^
+
+tests/valgrind_no_leak: tests/valgrind_no_leak.c malloc_stub.o malloc_stub.o mem.o common.o
+	$(CC) $(CFLAGS) -o $@ $^
+
+GREEN='\033[0;32m'
+RESET='\033[0m'
+tests/valgrind: tests/valgrind_leak tests/valgrind_no_leak
+	! valgrind --leak-check=full --error-exitcode=1 tests/valgrind_leak
+	@echo $(GREEN)"✓ The control test successfully leaked memory according to valgrind"$(RESET)
+	valgrind --leak-check=full --error-exitcode=1 tests/valgrind_no_leak
+	@echo $(GREEN)"✓ The correct program didn't leak memory according to valgrind"$(RESET)
+
 # nettoyage
 clean:
-	$(RM) *.o $(PROGRAMS) libmalloc.so .*.deps
+	$(RM) *.o $(PROGRAMS) libmalloc.so .*.deps tests/link_test
