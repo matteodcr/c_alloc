@@ -1,13 +1,12 @@
 image: "rustlang/rust:nightly"
 
-unit-test-job:
-  script:
-    - apt-get update -y && apt-get install -y valgrind
-    - make tests
-
 before_script:
   - apt-get update -yqq
-  - apt-get install -yqq --no-install-recommends build-essential
+  - apt-get install -yqq --no-install-recommends build-essential valgrind
+
+unit-test-job:
+  script:
+    - make tests
 
 rust_test:
   script:
