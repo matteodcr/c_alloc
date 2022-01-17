@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 #include "../mem.h"
 
 #define TEST(function) { void function(); test_function(function, #function); }
@@ -13,7 +14,7 @@ void* get_memory_adr();
 
 void test_function(void (*function)(), const char* name) {
     fprintf(stderr, "%s %s\n", RESULT_ERR, name);
-    mem_init_auto();
+    mem_init_auto(false);
     function();
     fprintf(stderr, "\033[1A%s %s\n", RESULT_OK, name);
 }
@@ -29,6 +30,8 @@ int main() {
     TEST(double_free);
     TEST(free_not_allocated);
     TEST(broken_chain);
+    TEST(guard_violation_right);
+    TEST(guard_violation_left);
 
     TEST(fit_first);
     TEST(fit_best);
@@ -41,7 +44,7 @@ void comme_le_schema() {
     mem_free(a);
 
     void* premier_fb = get_memory_adr() + 16;
-    assert_eq(b - premier_fb, 48);
+    assert_eq(b - premier_fb, 48 + 16); // Après le commit 9567e11, allocator_header fait 16 octets de plus qu'avant
 }
 
 void alloc_free_alloc_free_same_pointer() {
@@ -98,6 +101,38 @@ void broken_chain() {
 
     assert(!mem_free(ptr));
     assert_eq(LAST_ERROR, FB_LINK_BROKEN);
+}
+
+void guard_violation_right() {
+    // Pour tester la violation des gardes, on doit réinitialiser l'allocateur avec les gardes activés
+    mem_init_auto(true);
+
+    // On joue un peu avec l'allocateur pour être sûr qu'il fonctionne
+    mem_alloc(16);
+    void* b = mem_alloc(16);
+    mem_alloc(16);
+    assert(mem_free(b));
+    b = mem_alloc(16);
+
+    // Notons qu'on déborde d'un octet vers la droite
+    memcpy(b, "abcdefghijklmnopq", 17);
+    // Pas très important, mais permet de vérifier que la ligne du dessus fait bien ce qu'on s'attend qu'elle fasse
+    assert(0 == strncmp("abcdefghijklmnop", b, 16));
+    assert(!mem_free(b));
+    assert_eq(LAST_ERROR, GUARD_VIOLATION);
+}
+
+void guard_violation_left() {
+    // On va faire un test un peu plus simple qu'au-dessus, pour tester un écrasement du garde de gauche
+    mem_init_auto(true);
+
+    void* b = mem_alloc(16);
+    memcpy(b - 1, "zabcdefghijklmnop", 17);
+    assert(0 == strncmp("abcdefghijklmnop", b, 16));
+    assert(!mem_free(b));
+    assert_eq(LAST_ERROR, GUARD_VIOLATION);
+
+    // On ne peut pas faire des débordements vers la gauche trop gros, car cela peut complètement corrompre la chaîne
 }
 
 void fit_first() {

@@ -19,7 +19,7 @@ void init() {
     static int first=1;
 
     if (first) {
-        mem_init(get_memory_adr(), get_memory_size());
+        mem_init(get_memory_adr(), get_memory_size(), false);
         first = 0;
     }
 }

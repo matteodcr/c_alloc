@@ -12,7 +12,7 @@ int main(int argc, char *argv[]) {
  		"\n");
 	for (int i=0; i<NB_TESTS; i++) {
 		debug("Initializing memory\n");
-		mem_init(get_memory_adr(), get_memory_size());
+		mem_init(get_memory_adr(), get_memory_size(), false);
 		alloc_max(get_memory_size());
 	}
 
